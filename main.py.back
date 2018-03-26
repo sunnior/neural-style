@@ -1,0 +1,58 @@
+#2. create loss
+#3. train image
+import tensorflow as tf
+import numpy as np
+import vgg
+import style
+import lab_io
+
+learning_rate = 1.0
+
+content_img_file = 'content/tubingen.jpg'
+content_img = lab_io.get_content_img(content_img_file)
+style_img_file = 'style/kandinsky.jpg'
+style_img = lab_io.get_style_image(style_img_file, content_img)
+
+vgg_model = vgg.VggModel("../../models/imagenet-vgg-verydeep-19.mat", content_img)
+
+init_img = tf.Variable(tf.random_uniform(content_img.shape, minval=-20., maxval=20., dtype=tf.float32))
+
+
+sess = tf.Session()
+alpha = 1.0
+beta = 100.0
+theta = 0.01
+tf_content_loss = style.get_content_loss(sess, vgg_model.net, content_img)
+tf_style_loss = style.get_style_loss(sess, vgg_model.net, style_img)
+tf_tv_loss = tf.image.total_variation(vgg_model.net['input'])
+
+
+tf_loss = alpha * tf_content_loss + beta * tf_style_loss + theta*tf_tv_loss
+#optimizer = tf.train.AdamOptimizer(learning_rate).minimize(tf_loss)
+
+optimizer = tf.contrib.opt.ScipyOptimizerInterface(tf_loss, method='L-BFGS-B', options={'maxiter': 1000, 'disp': 50})
+
+sess.run(tf.global_variables_initializer())
+sess.run(vgg_model.net['input'].assign(init_img))
+optimizer.minimize(sess)
+result_img = sess.run(vgg_model.net['input'])
+lab_io.write_image('result.jpg', result_img)
+
+'''
+idx = 0
+for i in range(10000):
+    loss, _ = sess.run([tf_loss, optimizer])
+    if i % 20 == 0:
+        print("iter" + str(i) + " " + str(loss))
+
+    if (i+1) % 100 == 0:
+        result_img = sess.run(vgg_model.net['input'])
+        lab_io.write_image('test/result' + format(idx, '04d') + '.jpg', result_img)
+        idx += 1
+'''
+
+
+#writer = tf.summary.FileWriter("./nn_logs", sess.graph)
+
+sess.close()
+#writer.close()
