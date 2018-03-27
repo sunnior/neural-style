@@ -2,19 +2,19 @@ import models
 import optimizer
 import data
 
-batch_size = 4
 vgg_data_path = ''
 dataset_path = ''
 style_image_path = ''
 
+batch_size = 4
 batch_shape = (batch_size, 256, 256, 3)
 
-content_loss_weight = 
-style_loss_weight = 
-tv_loss_weight = 
+content_loss_weight = 7.5e0
+style_loss_weight = 1e2
+tv_loss_weight = 2e2
 
-learning_rate =
-epoches = 
+learning_rate = 1e-3
+epoches = 2
 
 data.init_dataset(dataset_path, batch_shape)
 
