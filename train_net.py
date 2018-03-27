@@ -1,10 +1,13 @@
 import models
 import optimizer
+import data
 
 batch_size = 4
-batch_shape = (batch_size, 256, 256, 3)
-style_shape = 
 vgg_data_path = ''
+dataset_path = ''
+style_image_path = ''
+
+batch_shape = (batch_size, 256, 256, 3)
 
 content_loss_weight = 
 style_loss_weight = 
@@ -13,9 +16,12 @@ tv_loss_weight =
 learning_rate =
 epoches = 
 
+data.init_dataset(dataset_path)
+
 batch_input = tf.placeholder(tf.float32, shape=batch_shape)
 batch_input_vgg = models.vgg_preprocess(batch_input)
-style_input = tf.placeholder(tf.float32, shape=style_shape)
+style_image = data.get_image(style_image_path)
+style_input = tf.constants(style_image)
 style_input_vgg = models.vgg_preprocess(style_input)
 
 mixer_net = models.load_mixer_net(batch_input)
@@ -37,9 +43,10 @@ loss = content_loss_weight * content_loss + style_loss_weight * style_loss + tv_
 train_step = tf.train.AdamOptimizer(learning_rate).minimize(loss)
 sess.run(tf.global_variables_initializer())
 
+data.set_batch_size(batch_size)
 for epoch in range(epoches):
 	while True:
-		has_data, x_batch = get_next_batch(batch_size)
+		has_data, x_batch = data.get_next_batch()
 		if not has_data:
 			break
 		
