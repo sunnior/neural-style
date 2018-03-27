@@ -16,7 +16,7 @@ tv_loss_weight =
 learning_rate =
 epoches = 
 
-data.init_dataset(dataset_path)
+data.init_dataset(dataset_path, batch_shape)
 
 batch_input = tf.placeholder(tf.float32, shape=batch_shape)
 batch_input_vgg = models.vgg_preprocess(batch_input)
@@ -46,11 +46,13 @@ sess.run(tf.global_variables_initializer())
 data.set_batch_size(batch_size)
 for epoch in range(epoches):
 	while True:
-		has_data, x_batch = data.get_next_batch()
-		if not has_data:
+		x_batch = data.get_next_batch()
+		if x_batch.shape[0] == 0:
 			break
 		
 		sess.run(train_step, feed_dict={batch_input:x_batch})
+
+sess.close()
 #I see they creat 3 vgg net. Can we just create one? all vgg nets are constant how it get optimized?
 
 #the style net may have different size, but gram matrix can handle it. how? print the shape.
