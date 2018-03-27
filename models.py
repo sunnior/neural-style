@@ -3,7 +3,15 @@ import tensorflow as tf
 import scipy.io
 import numpy as np
 
-def load_vgg(data_path, input):
+MEAN_PIXEL = np.array([ 123.68 ,  116.779,  103.939])
+
+def vgg_preprocess(image):
+	return image - MEAN_PIXEL
+
+def vgg_postprocess(image):
+	return image + MEAN_PIXEL
+
+def load_vgg_net(data_path, input):
     raw_data = scipy.io.loadmat(data_path)
     raw_layers = raw_data['layers'][0]
 
@@ -56,7 +64,7 @@ def load_vgg(data_path, input):
      
 	 return net       
 
-def load_style_net(input):
+def load_mixer_net(input):
 	conv1 = _conv_layer(input, 32, 9, 1)
 	conv2 = _conv_layer(conv1, 64, 3, 2)
 	conv3 = _conv_layer(conv2, 128, 3, 2)
