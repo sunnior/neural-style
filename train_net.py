@@ -1,10 +1,12 @@
 import models
 import optimizer
 import data
+import tensorflow as tf
+import numpy as np
 
-vgg_data_path = ''
-dataset_path = ''
-style_image_path = ''
+vgg_data_path = '../models/imagenet-vgg-verydeep-19.mat'
+dataset_path = '../dataset/train2017'
+style_image_path = '../style/kandinsky.jpg'
 
 batch_size = 4
 batch_shape = (batch_size, 256, 256, 3)
@@ -20,8 +22,8 @@ data.init_dataset(dataset_path, batch_shape)
 
 batch_input = tf.placeholder(tf.float32, shape=batch_shape)
 batch_input_vgg = models.vgg_preprocess(batch_input)
-style_image = data.get_image(style_image_path)
-style_input = tf.constants(style_image)
+style_image = np.expand_dims(data.get_img(style_image_path), axis=0)
+style_input = tf.constant(style_image, dtype=tf.float32)
 style_input_vgg = models.vgg_preprocess(style_input)
 
 mixer_net = models.load_mixer_net(batch_input)
@@ -31,10 +33,14 @@ vgg_mixer_net = models.load_vgg_net(vgg_data_path, mixer_net_vgg)
 vgg_style_net = models.load_vgg_net(vgg_data_path, style_input_vgg)
 vgg_content_net = models.load_vgg_net(vgg_data_path, batch_input_vgg)
 
+
 sess = tf.Session()
 
-content_loss = optimizer.create_content_loss(vgg_mixer_net, vgg_content_net)
 style_loss = optimizer.create_style_loss(sess, vgg_mixer_net, vgg_style_net)
+
+#content_loss = optimizer.create_content_loss(vgg_mixer_net, vgg_content_net)
+
+'''
 tv_loss = optimizer.create_tv_loss()
 #how to get tv loss what is _tensor_size
 
@@ -57,3 +63,4 @@ sess.close()
 
 #the style net may have different size, but gram matrix can handle it. how? print the shape.
 
+'''
