@@ -21,19 +21,18 @@ def create_style_loss(sess, vgg_mixer_net, vgg_style_net):
 		F = tf.reshape(net, (b, h * w, d))
 		F_t = tf.transpose(F, perm=[0, 2, 1])
 		gram = tf.matmul(F_t, F) / size.value
-		print(gram.get_shape())
 		return gram
 	
 	style_loss = 0
 	for style_layer in STYLE_LAYERS:
 		activation = sess.run(vgg_style_net[style_layer])
-		#gram_style = _gram_matrix(tf.convert_to_tensor(activation))
-		#gram_mixer = _gram_matrix(vgg_mixer_net[style_layer])
+		gram_style = _gram_matrix(tf.convert_to_tensor(activation))
+		gram_mixer = _gram_matrix(vgg_mixer_net[style_layer])
 
-		#_, w, h = gram_style.get_shape()
-		#size = w * h
-		#style_loss += tf.reduce_sum(tf.pow(gram_style - gram_mixer, 2)) / size.value
+		_, w, h = gram_style.get_shape()
+		size = w * h
+		style_loss += tf.reduce_sum(tf.pow(gram_style - gram_mixer, 2)) / size.value
 		
-	style_loss /= float(len(style_layers_weights))
+	style_loss /= float(len(STYLE_LAYERS))
 	
 	return style_loss    

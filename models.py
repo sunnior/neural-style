@@ -48,22 +48,23 @@ def load_vgg_net(data_path, input):
                   ('conv5_3', Type.Conv, 32), ('relu5_3', Type.Relu, 32),
                   ('conv5_4', Type.Conv, 34), ('relu5_4', Type.Relu, 34),
                   ('pool5', Type.Pool))
-
-    # net['input'] = tf.Variable(tf.zeros(img.shape, dtype=np.float32))
+	
+    #net['input'] = tf.Variable(tf.zeros(input.shape, dtype=np.float32))
 	net['input'] = input
 	
 	layer_input = net['input']
 	for layer_config in net_config:
 		if layer_config[1] == Type.Conv:
 			weights = tf.constant(raw_layers[layer_config[2]][0][0][2][0][0])
-			net[layer_config[0]] = tf.nn.conv2d(layer_input, weights, strides=[1, 1, 1, 1], padding='SAME')
+			conv = tf.nn.conv2d(layer_input, weights, strides=[1, 1, 1, 1], padding='SAME')
+			net[layer_config[0]] = conv
+
 		elif layer_config[1] == Type.Relu:
 			bias = raw_layers[layer_config[2]][0][0][2][0][1]
-			bias = tf.constant(np.reshape(bias, (bias.size)))
+			bias = np.reshape(bias, (bias.size))
 			net[layer_config[0]] = tf.nn.relu(layer_input + bias)
 		elif layer_config[1] == Type.Pool:
-			print("for pool " + str(layer_input.get_shape()))
-			net[layer_config[0]] = tf.nn.avg_pool(layer_input, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+			net[layer_config[0]] = tf.nn.max_pool(layer_input, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 		else:
 			raise Exception('invalid layer type!')
 	
