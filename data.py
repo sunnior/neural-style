@@ -1,5 +1,6 @@
 import os
 import scipy
+import numpy as np
 
 _content_targets = {}
 _batch_shape = 0
@@ -14,6 +15,24 @@ def get_img(src, img_size=False):
     if img_size != False:
         img = scipy.misc.imresize(img, img_size)
     return img
+
+def img_fit_to(img, max_size=512):
+     # bgr image
+    h, w, d = img.shape
+    mx = max_size
+    # resize if > max size
+    if h > w and h > mx:
+        w = (float(mx) / float(h)) * w
+        img = scipy.misc.imresize(img, (mx, int(w), d))
+    if w > mx:
+        h = (float(mx) / float(w)) * h
+        img = scipy.misc.imresize(img, (int(h), mx, d))
+
+    return img
+
+def save_img(out_path, img):
+    img = np.clip(img, 0, 255).astype(np.uint8)
+    scipy.misc.imsave(out_path, img)
 
 def init_dataset(dataset_path, batch_shape):
     _content_targets = _get_files(dataset_path)

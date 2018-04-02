@@ -7,19 +7,23 @@ MEAN_PIXEL = np.array([123.68,  116.779,  103.939])
 _raw_data = 0
 
 def vgg_preprocess(image):
-    return image - MEAN_PIXEL
-
+	image = image - MEAN_PIXEL 
+	image = np.transpose(image, (0, 3, 1, 2))
+	return image
 
 def vgg_postprocess(image):
-    return image + MEAN_PIXEL
+	image = np.transpose(image, (0, 2, 3, 1))
+	image = image + MEAN_PIXEL
+	return image
 
-
-def load_vgg_net(data_path, input):
+def load_vgg_data(data_path):
 	global _raw_data
-	if _raw_data == 0:
-		_raw_data = scipy.io.loadmat(data_path)
+	_raw_data = scipy.io.loadmat(data_path)
+
+def load_vgg_net(net_name, input):
+	global _raw_data
 	raw_layers = _raw_data['layers'][0]
-	
+		
 	net = {}
 	
 	class Type(Enum):
@@ -54,17 +58,19 @@ def load_vgg_net(data_path, input):
 	
 	layer_input = net['input']
 	for layer_config in net_config:
+		node_name = net_name + '_' + layer_config[0]
 		if layer_config[1] == Type.Conv:
-			weights = tf.constant(raw_layers[layer_config[2]][0][0][2][0][0])
-			conv = tf.nn.conv2d(layer_input, weights, strides=[1, 1, 1, 1], padding='SAME')
+			weights = tf.constant(raw_layers[layer_config[2]][0][0][2][0][0], name=node_name + '_weight_const')
+			conv = tf.nn.conv2d(layer_input, weights, strides=[1, 1, 1, 1], padding='SAME', name=node_name, data_format='NCHW')
 			net[layer_config[0]] = conv
 
 		elif layer_config[1] == Type.Relu:
 			bias = raw_layers[layer_config[2]][0][0][2][0][1]
-			bias = np.reshape(bias, (bias.size))
-			net[layer_config[0]] = tf.nn.relu(layer_input + bias)
+			bias = np.reshape(bias, (1, bias.size, 1, 1))
+			bias = tf.constant(bias, name=node_name + '_bias_const')
+			net[layer_config[0]] = tf.nn.relu(tf.add(layer_input, bias, name=node_name + '_add'), name=node_name)
 		elif layer_config[1] == Type.Pool:
-			net[layer_config[0]] = tf.nn.max_pool(layer_input, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+			net[layer_config[0]] = tf.nn.avg_pool(layer_input, ksize=[1, 1, 2, 2], strides=[1, 1, 2, 2], padding='SAME', data_format='NCHW', name=node_name)
 		else:
 			raise Exception('invalid layer type!')
 	
