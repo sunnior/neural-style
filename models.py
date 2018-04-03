@@ -52,7 +52,7 @@ def load_vgg_net(net_name, input):
                   ('conv5_3', Type.Conv, 32), ('relu5_3', Type.Relu, 32),
                   ('conv5_4', Type.Conv, 34), ('relu5_4', Type.Relu, 34),
                   ('pool5', Type.Pool))
-	
+
     #net['input'] = tf.Variable(tf.zeros(input.shape, dtype=np.float32))
 	net['input'] = input
 	
@@ -79,10 +79,10 @@ def load_vgg_net(net_name, input):
 	return net
 
 
-def load_mixer_net(input):
+def load_mixer_net(name, input):
 
 	def _conv_init_vars(input, num_filters, filter_size, transpose=False):
-		_, h, w, channels = input.get_shape()
+		_, channels, h, w = input.get_shape()
 		if not transpose:
 			weights_shape = [filter_size, filter_size, channels.value, num_filters]
 		else:
@@ -92,59 +92,60 @@ def load_mixer_net(input):
 		return tf.Variable(tf.truncated_normal(weights_shape, stddev=.1, seed=1), dtype=tf.float32)
 
 	def _instance_norm(net):
-		_, h, w, channels = [i.value for i in net.get_shape()]
-		var_shape = [channels]
-		mu, sigma_sq = tf.nn.moments(net, [1, 2], keep_dims=True)
-		shift = tf.Variable(tf.zeros(var_shape))
-		scale = tf.Variable(tf.ones(var_shape))
+		#_, h, w, channels = [i.value for i in net.get_shape()]
+		#var_shape = [channels]
+		mu, sigma_sq = tf.nn.moments(net, [2, 3], keep_dims=True)
+		shift = tf.Variable(tf.zeros(net.get_shape()))
+		scale = tf.Variable(tf.ones(net.get_shape()))
 		# summary these variables, see their change
 		epsilon = 1e-3
 		normalized = (net - mu) / (sigma_sq + epsilon) ** 0.5
 		return scale * normalized + shift
 
-	def _conv_layer(net, num_filters, filter_size, strides, relu=True):
+	def _conv_layer(name, net, num_filters, filter_size, strides, relu=True):
 		#print('conv layer: ' + str(net.get_shape()))
 		weights_init = _conv_init_vars(net, num_filters, filter_size)
-		strides_shape = [1, strides, strides, 1]
-		net = tf.nn.conv2d(net, weights_init, strides_shape, padding='SAME')
+		strides_shape = [1, 1, strides, strides]
+		net = tf.nn.conv2d(net, weights_init, strides_shape, padding='SAME', data_format='NCHW', name=name)
 		net = _instance_norm(net)
 		if relu:
 			net = tf.nn.relu(net)
 
+		print('conv: ' + str(net.get_shape()))
 		return net
 
-	def _residual_block(net, filter_size):
-		_, h, w, channels = net.get_shape()
+	def _residual_block(name, net, filter_size):
+		_, channels, h, w = net.get_shape()
 		#print('residual layer: ' + str(net.get_shape()))
-		return net + _conv_layer(net, channels.value, filter_size, 1, relu=False)
+		return tf.add(net, _conv_layer(name + '_conv', net, channels.value, filter_size, 1, relu=False), name=name)
 
 	def _conv_transpose_layer(net, num_filters, filter_size, strides):
 		weights_init = _conv_init_vars(net, num_filters, filter_size, transpose=True)
 
-		batch_size, rows, cols, in_channels = [i.value for i in net.get_shape()]
+		batch_size, in_channels, rows, cols = [i.value for i in net.get_shape()]
 		new_rows, new_cols = int(rows * strides), int(cols * strides)
 		# new_shape = #tf.pack([tf.shape(net)[0], new_rows, new_cols, num_filters])
 
-		new_shape = [batch_size, new_rows, new_cols, num_filters]
+		new_shape = [batch_size, num_filters, new_rows, new_cols]
 		tf_shape = tf.stack(new_shape)
-		strides_shape = [1,strides,strides,1]
+		strides_shape = [1, 1, strides,strides]
 
-		net = tf.nn.conv2d_transpose(net, weights_init, tf_shape, strides_shape, padding='SAME')
+		net = tf.nn.conv2d_transpose(net, weights_init, tf_shape, strides_shape, padding='SAME', data_format='NCHW')
 		net = _instance_norm(net)
-		#print('trans layer: ' + str(net.get_shape()))
+		print('trans conv: ' + str(net.get_shape()))
 		return tf.nn.relu(net)
 	
-	conv1 = _conv_layer(input, 32, 9, 1)
-	conv2 = _conv_layer(conv1, 64, 3, 2)
-	conv3 = _conv_layer(conv2, 128, 3, 2)
-	resid1 = _residual_block(conv3, 3)
-	resid2 = _residual_block(resid1, 3)
-	resid3 = _residual_block(resid2, 3)
-	resid4 = _residual_block(resid3, 3)
-	resid5 = _residual_block(resid4, 3)
+	conv1 = _conv_layer(name + '_conv1', input, 32, 9, 1)
+	conv2 = _conv_layer(name + '_conv2', conv1, 64, 3, 2)
+	conv3 = _conv_layer(name + '_conv3', conv2, 128, 3, 2)
+	resid1 = _residual_block(name + '_res1', conv3, 3)
+	resid2 = _residual_block(name + '_res2', resid1, 3)
+	resid3 = _residual_block(name + '_res3', resid2, 3)
+	resid4 = _residual_block(name + '_res4', resid3, 3)
+	resid5 = _residual_block(name + '_res5', resid4, 3)
 	conv_t1 = _conv_transpose_layer(resid5, 64, 3, 2)
 	conv_t2 = _conv_transpose_layer(conv_t1, 32, 3, 2)
-	conv_t3 = _conv_layer(conv_t2, 3, 9, 1, relu=False)
+	conv_t3 = _conv_layer(name + 'convend', conv_t2, 3, 9, 1, relu=False)
 	# print the shape of each layer.
 	preds = tf.nn.tanh(conv_t3) * 150 + 255./2
 	# why scale is 150
